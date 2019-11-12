@@ -59,6 +59,7 @@ impl Piece
             points: [(0,-1), (0,0), (0, 1), (1,1)],
             top_left: (0, -1),
             bot_right: (1,1)
+
         }
     }
 
