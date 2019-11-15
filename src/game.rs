@@ -26,51 +26,57 @@ impl Board
     {
         let mut v = Vec::new();
         for i in 0..width*height
-        {
+        {         
+            //v.push(if i < width * (height - 1) { Cell::Empty } else { Cell::Occupied });
             v.push(Cell::Empty);
         }
         Board{width: width, height: height, cells: v}
     }
 }
+#[derive(Clone)]
+struct Point
+{
+    x: i32,
+    y: i32
+}
 struct Piece
 {
-    position: (i32, i32),
-    points: [(i32, i32); 4],
-    top_left: (i32, i32),
-    bot_right: (i32, i32)
+    position: Point,
+    points: [Point; 4],
+    top_left: Point,
+    bot_right: Point
 }
 impl Piece
 {
-    fn I() -> Piece
+    fn i() -> Piece
     {
         Piece
         {
-            position: (0,0),
-            points: [(0, 2), (0, 1), (0, 0), (0, -1)],
-            top_left: (0, -1),
-            bot_right: (0, 2)
+            position: Point{x: 0, y: 0},
+            points: [Point{x: 0, y: 2}, Point{x: 0, y: 1}, Point{x: 0, y: 0}, Point{x: 0, y: -1}],
+            top_left: Point{x: 0, y: -1},
+            bot_right: Point{x: 0, y: 2}
         }
     }
-    fn L() -> Piece
+    fn l() -> Piece
     {
         Piece
         {
-            position: (0,0),
-            points: [(0,-1), (0,0), (0, 1), (1,1)],
-            top_left: (0, -1),
-            bot_right: (1,1)
+            position: Point{x: 0, y: 0},
+            points: [Point{x: 0, y: -1}, Point{x: 0, y: 0}, Point{x: 0, y: 1}, Point{x: 1, y: 1}],
+            top_left: Point{x: 0, y: -1},
+            bot_right: Point{x: 1, y: 1}
 
         }
     }
-
     
     fn top_left(&self) -> (i32, i32)
     {
-        (self.top_left.0 + self.position.0 as i32, self.top_left.1 + self.position.1 as i32)
+        (self.top_left.x + self.position.x, self.top_left.y + self.position.y)
     }
     fn bot_right(&self) -> (i32, i32)
     {
-        (self.bot_right.0 + self.position.0 as i32, self.bot_right.1 + self.position.1 as i32)
+        (self.bot_right.x + self.position.x, self.bot_right.y + self.position.y)
     }
 }
 
@@ -88,7 +94,31 @@ impl Game
 
     pub fn new(context: &mut Context) -> Game
     {
-        Game { board: Board::new(10, 20), active_piece: Piece::L(), input_timer: 0.0, tick_timer: 0.0 }
+        Game { board: Board::new(10, 20), active_piece: Piece::l(), input_timer: 0.0, tick_timer: 0.0 }
+    }
+    fn check_collision(&self, piece: &Piece) -> bool
+    {   
+        let tl = piece.top_left();
+        let br = piece.bot_right();   
+        if tl.0 < 0 || br.0 >= (self.board.width as i32) || br.1 >= (self.board.height as i32)        
+        {
+            return true;
+        }
+
+        for point in piece.points.iter()
+        {
+            let index = point.x + piece.position.x + ((point.y + piece.position.y) * self.board.width as i32);
+            if index < 0
+            {
+                continue;
+            }
+            match self.board.cells[index as usize]
+            {
+                Cell::Occupied => { return true; }
+                _=> continue
+            }
+        }
+        false
     }
 }
 impl EventHandler for Game
@@ -99,36 +129,44 @@ impl EventHandler for Game
         self.input_timer += delta_time;
         self.tick_timer += delta_time;
 
+        let previous_position = self.active_piece.position.clone();
         //Tick
         if self.tick_timer > Game::TICK_DELAY
         {
             self.tick_timer -= Game::TICK_DELAY;
             
-            self.active_piece.position.1 += 1;
+            self.active_piece.position.y += 1;
         }
+        if self.check_collision(&self.active_piece)
+        {
+            self.active_piece.position = previous_position;
+            for point in self.active_piece.points.iter()
+            {
+                let index = (point.x + self.active_piece.position.x + ((point.y + self.active_piece.position.y) * self.board.width as i32)) as usize;
+                self.board.cells[index] = Cell::Occupied;
+            }
 
+            self.active_piece = Piece::l();
+
+            return Ok(())
+        }    
+        
+        let previous_position = self.active_piece.position.clone();
         //Input
         if input::keyboard::is_key_pressed(context, KeyCode::D) && self.input_timer > Game::INPUT_DELAY
         {
-            self.active_piece.position.0 += 1;
+            self.active_piece.position.x += 1;
             self.input_timer = 0.0;
         }
         if input::keyboard::is_key_pressed(context, KeyCode::A) && self.input_timer > Game::INPUT_DELAY
         {
-            self.active_piece.position.0 -= 1;
+            self.active_piece.position.x -= 1;
             self.input_timer = 0.0;
         }
-
         //Collision
-        let x = self.active_piece.top_left().0;
-        if x < 0
+        if self.check_collision(&self.active_piece)
         {
-            self.active_piece.position.0 += -x;
-        }
-        let x = self.active_piece.bot_right().0;
-        if x >= (self.board.width) as i32
-        {
-            self.active_piece.position.0 -= x - (self.board.width as i32 - 1);
+            self.active_piece.position = previous_position;
         }
 
         Ok(())
@@ -168,12 +206,12 @@ impl EventHandler for Game
                 }                
             }
         }
-        //TODO: draw active piece
-        for (x,y) in self.active_piece.points.iter()
+        //Draw active piece
+        for point in self.active_piece.points.iter()
         {
-            let (cx, cy) = self.active_piece.position;
-            let x_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + ((*x + cx as i32) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
-            let y_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + ((*y + cy as i32) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));
+            let center = &self.active_piece.position;
+            let x_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + ((point.x + center.x) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
+            let y_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + ((point.y + center.y) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));
             
             let rect = graphics::Rect{ x: x_pos, y: y_pos, w: Board::CELL_SIZE, h: Board::CELL_SIZE};
             let square = graphics::Mesh::new_rectangle(context, DrawMode::fill(), rect, graphics::WHITE).unwrap();
