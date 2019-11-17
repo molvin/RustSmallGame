@@ -5,6 +5,20 @@ use ggez::event::KeyCode;
 use ggez::input;
 use ggez::timer;
 
+///TODO
+/// Make all pieces
+/// Random hat pieces
+/// Space to drop
+/// Down to reduce time between ticks
+/// Colors for pieces
+/// Colors for cells
+/// Rotation
+/// Kicking
+/// Clearing
+/// Score
+/// Holding 
+/// Show next pieces
+
 enum Cell
 {
     Empty,
@@ -30,21 +44,26 @@ impl Board
             //v.push(if i < width * (height - 1) { Cell::Empty } else { Cell::Occupied });
             v.push(Cell::Empty);
         }
+
         Board{width: width, height: height, cells: v}
     }
+
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Point
 {
     x: i32,
     y: i32
 }
+#[derive(Debug)]
 struct Piece
 {
     position: Point,
     points: [Point; 4],
     top_left: Point,
-    bot_right: Point
+    bot_right: Point,
+    rotation_center: (f32, f32)
+    //TODO: don't need top_left and top_right, just index into points array
 }
 impl Piece
 {
@@ -55,7 +74,8 @@ impl Piece
             position: Point{x: 0, y: 0},
             points: [Point{x: 0, y: 2}, Point{x: 0, y: 1}, Point{x: 0, y: 0}, Point{x: 0, y: -1}],
             top_left: Point{x: 0, y: -1},
-            bot_right: Point{x: 0, y: 2}
+            bot_right: Point{x: 0, y: 2},
+            rotation_center: (0.0, 2.0)
         }
     }
     fn l() -> Piece
@@ -65,7 +85,8 @@ impl Piece
             position: Point{x: 0, y: 0},
             points: [Point{x: 0, y: -1}, Point{x: 0, y: 0}, Point{x: 0, y: 1}, Point{x: 1, y: 1}],
             top_left: Point{x: 0, y: -1},
-            bot_right: Point{x: 1, y: 1}
+            bot_right: Point{x: 1, y: 1},
+            rotation_center: (0.0, 0.0)
 
         }
     }
@@ -77,6 +98,19 @@ impl Piece
     fn bot_right(&self) -> (i32, i32)
     {
         (self.bot_right.x + self.position.x, self.bot_right.y + self.position.y)
+    }
+    fn rotate(&mut self)
+    {
+        let angle : f32 = std::f32::consts::PI;
+        for i in 0..4
+        {
+            let new_y = (angle.cos() * (self.points[i].x as f32 - self.rotation_center.0)
+                      - angle.sin() * (self.points[i].y as f32 - self.rotation_center.1) + self.rotation_center.0) as i32;
+            let new_x = (angle.sin() * (self.points[i].x as f32 - self.rotation_center.0)
+            + angle.cos() * (self.points[i].y as f32 - self.rotation_center.1) + self.rotation_center.1) as i32;
+            //println!("index: {}, new: {}, {}, old: {}, {}", i, new_x, new_y, self.points[i].x, self.points[i].y);
+            self.points[i] = Point{x: new_x, y: new_y};
+        }
     }
 }
 
@@ -94,7 +128,7 @@ impl Game
 
     pub fn new(context: &mut Context) -> Game
     {
-        Game { board: Board::new(10, 20), active_piece: Piece::l(), input_timer: 0.0, tick_timer: 0.0 }
+        Game { board: Board::new(10, 20), active_piece: Piece::i(), input_timer: 0.0, tick_timer: 0.0 }
     }
     fn check_collision(&self, piece: &Piece) -> bool
     {   
@@ -161,6 +195,11 @@ impl EventHandler for Game
         if input::keyboard::is_key_pressed(context, KeyCode::A) && self.input_timer > Game::INPUT_DELAY
         {
             self.active_piece.position.x -= 1;
+            self.input_timer = 0.0;
+        }
+        if input::keyboard::is_key_pressed(context, KeyCode::W) && self.input_timer > Game::INPUT_DELAY
+        {
+            self.active_piece.rotate();
             self.input_timer = 0.0;
         }
         //Collision
