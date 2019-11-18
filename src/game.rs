@@ -1,9 +1,8 @@
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, DrawMode};
-use ggez::event::EventHandler;
-use ggez::event::KeyCode;
-use ggez::input;
-use ggez::timer;
+use ggez::event::{EventHandler, KeyCode};
+use ggez::{input, timer};
+use std::{cmp, ops};
 
 ///TODO
 /// Make all pieces
@@ -47,21 +46,59 @@ impl Board
 
         Board{width: width, height: height, cells: v}
     }
+    fn check_collision(&self, piece: &Piece) -> bool
+    {   
+        let (tl, br) = piece.generate_bounds();
+        if tl.x < 0 || br.x >= (self.width as i32) || br.y >= (self.height as i32)        
+        {
+            return true;
+        }
+
+        for point in piece.points.iter()
+        {
+            let index = point.x + piece.position.x + ((point.y + piece.position.y) * self.width as i32);
+            if index < 0
+            {
+                continue;
+            }
+            match self.cells[index as usize]
+            {
+                Cell::Occupied => { return true; }
+                _=> continue
+            }
+        }
+        false
+    }
 
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 struct Point
 {
     x: i32,
     y: i32
 }
+impl Point
+{
+    fn zero() -> Point
+    {
+        Point { x: 0, y: 0}
+    }
+}
+impl ops::Add<Point> for Point
+{
+    type Output = Point;
+
+    fn add(self, rhs: Point) -> Point
+    {
+        Point { x: self.x + rhs.x, y: self.y + rhs.y}
+    }
+}
+
 #[derive(Debug)]
 struct Piece
 {
     position: Point,
     points: [Point; 4],
-    top_left: Point,
-    bot_right: Point,
     rotation_center: (f32, f32)
     //TODO: don't need top_left and top_right, just index into points array
 }
@@ -71,45 +108,60 @@ impl Piece
     {
         Piece
         {
-            position: Point{x: 0, y: 0},
-            points: [Point{x: 0, y: 2}, Point{x: 0, y: 1}, Point{x: 0, y: 0}, Point{x: 0, y: -1}],
-            top_left: Point{x: 0, y: -1},
-            bot_right: Point{x: 0, y: 2},
-            rotation_center: (0.0, 2.0)
+            position: Point::zero(),
+            points: [Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 2, y: 1}, Point{x: 3, y: 1}],
+            rotation_center: (2.0, 1.0)
+        }
+    }
+    fn j() -> Piece
+    {
+        Piece
+        {
+            position: Point::zero(),
+            points: [Point{x: 0, y: 0}, Point{x: 1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}],
+            rotation_center: (0.0, 0.0)
         }
     }
     fn l() -> Piece
     {
         Piece
         {
-            position: Point{x: 0, y: 0},
+            position: Point::zero(),
             points: [Point{x: 0, y: -1}, Point{x: 0, y: 0}, Point{x: 0, y: 1}, Point{x: 1, y: 1}],
-            top_left: Point{x: 0, y: -1},
-            bot_right: Point{x: 1, y: 1},
             rotation_center: (0.0, 0.0)
-
         }
     }
     
-    fn top_left(&self) -> (i32, i32)
+
+
+    fn generate_bounds(&self) -> (Point, Point)
     {
-        (self.top_left.x + self.position.x, self.top_left.y + self.position.y)
-    }
-    fn bot_right(&self) -> (i32, i32)
-    {
-        (self.bot_right.x + self.position.x, self.bot_right.y + self.position.y)
+        let mut top_left = Point{x: 100000, y: 100000};
+        let mut bot_right = Point{x: -100000, y: -100000};
+
+        for i in 0..4
+        {
+            top_left.x = cmp::min(self.points[i].x, top_left.x);
+            bot_right.x = cmp::max(self.points[i].x, bot_right.x);          
+            top_left.y = cmp::min(self.points[i].y, top_left.y);
+            bot_right.y = cmp::max(self.points[i].y, bot_right.y);
+        }
+
+        (top_left + self.position, bot_right + self.position)
     }
     fn rotate(&mut self)
     {
-        let angle : f32 = std::f32::consts::PI;
+        let angle : f32 = std::f32::consts::PI * 0.5;
+        let c = angle.cos();
+        let s = angle.sin();
         for i in 0..4
         {
-            let new_y = (angle.cos() * (self.points[i].x as f32 - self.rotation_center.0)
-                      - angle.sin() * (self.points[i].y as f32 - self.rotation_center.1) + self.rotation_center.0) as i32;
-            let new_x = (angle.sin() * (self.points[i].x as f32 - self.rotation_center.0)
-            + angle.cos() * (self.points[i].y as f32 - self.rotation_center.1) + self.rotation_center.1) as i32;
-            //println!("index: {}, new: {}, {}, old: {}, {}", i, new_x, new_y, self.points[i].x, self.points[i].y);
-            self.points[i] = Point{x: new_x, y: new_y};
+            let (cx, cy) = self.rotation_center;
+            let (px, py) = (self.points[i].x as f32 - cx, self.points[i].y as f32 - cy);
+            let rotated_x = ((px * c - py * s) + cx).round() as i32;
+            let rotated_y = ((px * s + py * c) + cy).round() as i32;
+            self.points[i] = Point{x: rotated_x, y: rotated_y};
+            println!("index: {}, before: {}, {}, after: {}, {}", i, px, py, rotated_x, rotated_y);
         }
     }
 }
@@ -129,31 +181,7 @@ impl Game
     pub fn new(context: &mut Context) -> Game
     {
         Game { board: Board::new(10, 20), active_piece: Piece::i(), input_timer: 0.0, tick_timer: 0.0 }
-    }
-    fn check_collision(&self, piece: &Piece) -> bool
-    {   
-        let tl = piece.top_left();
-        let br = piece.bot_right();   
-        if tl.0 < 0 || br.0 >= (self.board.width as i32) || br.1 >= (self.board.height as i32)        
-        {
-            return true;
-        }
-
-        for point in piece.points.iter()
-        {
-            let index = point.x + piece.position.x + ((point.y + piece.position.y) * self.board.width as i32);
-            if index < 0
-            {
-                continue;
-            }
-            match self.board.cells[index as usize]
-            {
-                Cell::Occupied => { return true; }
-                _=> continue
-            }
-        }
-        false
-    }
+    }   
 }
 impl EventHandler for Game
 {
@@ -171,7 +199,7 @@ impl EventHandler for Game
             
             self.active_piece.position.y += 1;
         }
-        if self.check_collision(&self.active_piece)
+        if self.board.check_collision(&self.active_piece)
         {
             self.active_piece.position = previous_position;
             for point in self.active_piece.points.iter()
@@ -186,7 +214,7 @@ impl EventHandler for Game
         }    
         
         let previous_position = self.active_piece.position.clone();
-        //Input
+        //Input, TODO: allow multiple inputs ? also get key down, input system
         if input::keyboard::is_key_pressed(context, KeyCode::D) && self.input_timer > Game::INPUT_DELAY
         {
             self.active_piece.position.x += 1;
@@ -203,7 +231,7 @@ impl EventHandler for Game
             self.input_timer = 0.0;
         }
         //Collision
-        if self.check_collision(&self.active_piece)
+        if self.board.check_collision(&self.active_piece)
         {
             self.active_piece.position = previous_position;
         }
@@ -234,6 +262,7 @@ impl EventHandler for Game
                 {
                     Cell::Occupied => 
                     {
+                        //TODO: operator overloading for more clean code?
                         let x_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + (x as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
                         let y_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + (y as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
         
@@ -248,6 +277,7 @@ impl EventHandler for Game
         //Draw active piece
         for point in self.active_piece.points.iter()
         {
+            //TODO: operator overloading for more clean code?
             let center = &self.active_piece.position;
             let x_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + ((point.x + center.x) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
             let y_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + ((point.y + center.y) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));
