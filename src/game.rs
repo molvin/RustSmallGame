@@ -2,7 +2,9 @@ use ggez::{Context, GameResult};
 use ggez::graphics::{self, DrawMode};
 use ggez::event::{EventHandler, KeyCode};
 use ggez::{input, timer};
-use std::{cmp, ops};
+use rand::{seq::SliceRandom, thread_rng};
+pub mod tetromino;
+use tetromino::Piece;
 
 ///TODO
 /// Make all pieces
@@ -17,6 +19,7 @@ use std::{cmp, ops};
 /// Score
 /// Holding 
 /// Show next pieces
+
 
 enum Cell
 {
@@ -71,100 +74,8 @@ impl Board
     }
 
 }
-#[derive(Clone, Debug, Copy)]
-struct Point
-{
-    x: i32,
-    y: i32
-}
-impl Point
-{
-    fn zero() -> Point
-    {
-        Point { x: 0, y: 0}
-    }
-}
-impl ops::Add<Point> for Point
-{
-    type Output = Point;
-
-    fn add(self, rhs: Point) -> Point
-    {
-        Point { x: self.x + rhs.x, y: self.y + rhs.y}
-    }
-}
-
-#[derive(Debug)]
-struct Piece
-{
-    position: Point,
-    points: [Point; 4],
-    rotation_center: (f32, f32)
-    //TODO: don't need top_left and top_right, just index into points array
-}
-impl Piece
-{
-    fn i() -> Piece
-    {
-        Piece
-        {
-            position: Point::zero(),
-            points: [Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 2, y: 1}, Point{x: 3, y: 1}],
-            rotation_center: (2.0, 1.0)
-        }
-    }
-    fn j() -> Piece
-    {
-        Piece
-        {
-            position: Point::zero(),
-            points: [Point{x: 0, y: 0}, Point{x: 1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}],
-            rotation_center: (0.0, 0.0)
-        }
-    }
-    fn l() -> Piece
-    {
-        Piece
-        {
-            position: Point::zero(),
-            points: [Point{x: 0, y: -1}, Point{x: 0, y: 0}, Point{x: 0, y: 1}, Point{x: 1, y: 1}],
-            rotation_center: (0.0, 0.0)
-        }
-    }
-    
 
 
-    fn generate_bounds(&self) -> (Point, Point)
-    {
-        let mut top_left = Point{x: 100000, y: 100000};
-        let mut bot_right = Point{x: -100000, y: -100000};
-
-        for i in 0..4
-        {
-            top_left.x = cmp::min(self.points[i].x, top_left.x);
-            bot_right.x = cmp::max(self.points[i].x, bot_right.x);          
-            top_left.y = cmp::min(self.points[i].y, top_left.y);
-            bot_right.y = cmp::max(self.points[i].y, bot_right.y);
-        }
-
-        (top_left + self.position, bot_right + self.position)
-    }
-    fn rotate(&mut self)
-    {
-        let angle : f32 = std::f32::consts::PI * 0.5;
-        let c = angle.cos();
-        let s = angle.sin();
-        for i in 0..4
-        {
-            let (cx, cy) = self.rotation_center;
-            let (px, py) = (self.points[i].x as f32 - cx, self.points[i].y as f32 - cy);
-            let rotated_x = ((px * c - py * s) + cx).round() as i32;
-            let rotated_y = ((px * s + py * c) + cy).round() as i32;
-            self.points[i] = Point{x: rotated_x, y: rotated_y};
-            println!("index: {}, before: {}, {}, after: {}, {}", i, px, py, rotated_x, rotated_y);
-        }
-    }
-}
 
 pub struct Game
 {
@@ -172,15 +83,39 @@ pub struct Game
     active_piece: Piece,
     input_timer: f32,
     tick_timer: f32,
+    tetromino_hat: [Piece; Game::NUM_OF_TETROMINOS],
+    current_tetromino_index: usize,
 }
 impl Game
 {
     const INPUT_DELAY: f32 = 0.3;
-    const TICK_DELAY: f32 = 0.5;
+    const TICK_DELAY: f32 = 0.2;
+    const NUM_OF_TETROMINOS: usize = 7;
 
     pub fn new(context: &mut Context) -> Game
     {
-        Game { board: Board::new(10, 20), active_piece: Piece::i(), input_timer: 0.0, tick_timer: 0.0 }
+        let hat: [Piece; Game::NUM_OF_TETROMINOS] = 
+        [
+            Piece::i(),
+            Piece::j(),
+            Piece::l(),
+            Piece::o(),
+            Piece::s(),
+            Piece::t(),
+            Piece::z()
+        ];
+        let mut game = Game 
+        { 
+            board: Board::new(10, 20), 
+            active_piece: hat[0].clone(), 
+            input_timer: 0.0, 
+            tick_timer: 0.0,
+            tetromino_hat: hat,
+            current_tetromino_index: 0
+        };
+        let mut rng = thread_rng();
+        game.tetromino_hat.shuffle(&mut rng);
+        game
     }   
 }
 impl EventHandler for Game
@@ -208,7 +143,16 @@ impl EventHandler for Game
                 self.board.cells[index] = Cell::Occupied;
             }
 
-            self.active_piece = Piece::l();
+            //New piece
+            self.current_tetromino_index = (self.current_tetromino_index + 1) % Game::NUM_OF_TETROMINOS;
+            println!("New index: {}", self.current_tetromino_index);
+            if self.current_tetromino_index == 0
+            {
+                let mut rng = thread_rng();
+                self.tetromino_hat.shuffle(&mut rng);
+                println!("Shuffling");
+            }
+            self.active_piece = self.tetromino_hat[self.current_tetromino_index].clone();
 
             return Ok(())
         }    

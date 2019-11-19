@@ -2,6 +2,8 @@ use ggez::ContextBuilder;
 use ggez::event;
 
 mod game;
+mod utility;
+
 
 fn main() {
     
