@@ -2,71 +2,71 @@ use crate::utility::{ Point };
 use std::cmp;
 
 #[derive(Debug, Clone)]
-pub struct Piece
+pub struct Tetromino
 {
     pub position: Point,
     pub points: [Point; 4],
     rotation_center: (f32, f32)
 }
-impl Piece
+impl Tetromino
 {
-    pub fn i() -> Piece
+    pub fn i() -> Tetromino
     {
-        Piece
+        Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 0}, Point{x: 1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}],
             rotation_center: (2.0, 0.0)
         }
     }
-    pub fn j() -> Piece
+    pub fn j() -> Tetromino
     {
-        Piece
+        Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 0}, Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 2, y: 1}],
             rotation_center: (1.0, 1.0)
         }
     }
-    pub fn l() -> Piece
+    pub fn l() -> Tetromino
     {
-        Piece
+        Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 2, y: 1}, Point{x: 2, y: 0}],
             rotation_center: (1.0, 1.0)
         }
     }
-    pub fn o() -> Piece
+    pub fn o() -> Tetromino
     {
-        Piece
+        Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 0}, Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 1, y: 0}],
             rotation_center: (0.5, 0.5)
         }
     }
-    pub fn s() -> Piece
+    pub fn s() -> Tetromino
     {
-        Piece
+        Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 1, y: 0}, Point{x: 2, y: 0}],
             rotation_center: (1.0, 1.0)
         }
     }
-    pub fn t() -> Piece
+    pub fn t() -> Tetromino
     {
-        Piece
+        Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 2, y: 1}, Point{x: 1, y: 0}],
             rotation_center: (1.0, 1.0)
         }
     }
-    pub fn z() -> Piece
+    pub fn z() -> Tetromino
     {
-        Piece
+        Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 0}, Point{x: 1, y: 0}, Point{x: 1, y: 1}, Point{x: 2, y: 1}],

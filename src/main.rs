@@ -13,7 +13,6 @@ mod utility;
 /// Clearing
 /// Score
 /// Holding 
-/// Show next pieces
 
 fn main() {
     

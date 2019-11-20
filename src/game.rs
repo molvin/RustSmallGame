@@ -2,8 +2,11 @@ use ggez::{Context, GameResult, input, timer};
 use ggez::graphics::{self, DrawMode};
 use ggez::event::{EventHandler, KeyCode};
 use rand::{seq::SliceRandom, thread_rng};
+use tetromino::Tetromino;
+use renderer::Renderer;
+
 pub mod tetromino;
-use tetromino::Piece;
+pub mod renderer;
 
 enum Cell
 {
@@ -33,7 +36,7 @@ impl Board
 
         Board{width: width, height: height, cells: v}
     }
-    fn check_collision(&self, piece: &Piece) -> bool
+    fn check_collision(&self, piece: &Tetromino) -> bool
     {   
         let (tl, br) = piece.generate_bounds();
         if tl.x < 0 || br.x >= (self.width as i32) || br.y >= (self.height as i32)        
@@ -62,10 +65,10 @@ impl Board
 pub struct Game
 {
     board: Board,
-    active_piece: Piece,
+    active_piece: Tetromino,
     input_timer: f32,
     tick_timer: f32,
-    tetromino_hat: [Piece; Game::NUM_OF_TETROMINOS],
+    tetromino_hat: [Tetromino; Game::NUM_OF_TETROMINOS],
     current_tetromino_index: usize,
 }
 impl Game
@@ -77,15 +80,15 @@ impl Game
 
     pub fn new(_context: &mut Context) -> Game
     {
-        let mut hat: [Piece; Game::NUM_OF_TETROMINOS] = 
+        let mut hat: [Tetromino; Game::NUM_OF_TETROMINOS] = 
         [
-            Piece::i(),
-            Piece::j(),
-            Piece::l(),
-            Piece::o(),
-            Piece::s(),
-            Piece::t(),
-            Piece::z()
+            Tetromino::i(),
+            Tetromino::j(),
+            Tetromino::l(),
+            Tetromino::o(),
+            Tetromino::s(),
+            Tetromino::t(),
+            Tetromino::z()
         ];
         hat.shuffle(&mut thread_rng());
         Game 
@@ -163,53 +166,41 @@ impl EventHandler for Game
     {
         graphics::clear(context, graphics::BLACK);
 
-        //Draw board, TODO: put mesh in board, no point remaking all the time      
-        let board_rect = graphics::Rect
-        {
-            x: Board::ORIGIN_OFFSET.0, 
-            y: Board::ORIGIN_OFFSET.1, 
-            w: self.board.width as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING,
-            h: self.board.height as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING
-        };
-        let board_mesh = graphics::Mesh::new_rectangle(context, DrawMode::stroke(1.0), board_rect, graphics::WHITE).unwrap();
-        graphics::draw(context, &board_mesh, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
+        //Draw board
+        Renderer::draw_frame
+        (
+            context, 
+            Board::ORIGIN_OFFSET,
+            (self.board.width as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING, self.board.height as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING)
+        )?;
         
         //Draw hold piece        
         let size = 4.0 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING;
-        let hold_rect = graphics::Rect
-        {
-            x: board_rect.x - size,
-            y: Board::ORIGIN_OFFSET.1,
-            w: size,
-            h: size
-        };
-        let hold_mesh = graphics::Mesh::new_rectangle(context, DrawMode::stroke(1.0), hold_rect, graphics::WHITE).unwrap();
-        graphics::draw(context, &hold_mesh, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
-        
+        Renderer::draw_frame
+        (
+            context, 
+            (Board::ORIGIN_OFFSET.0 - size, Board::ORIGIN_OFFSET.1),
+            (size, size)
+        )?;
+
         //Draw next pieces
         for i in 0..Game::NUM_OF_NEXT_PIECES
         {
-            let hold_rect = graphics::Rect
-            {
-                x: board_rect.x + board_rect.w,
-                y: Board::ORIGIN_OFFSET.1 + size * i as f32,
-                w: size,
-                h: size
-            };
-            let hold_mesh = graphics::Mesh::new_rectangle(context, DrawMode::stroke(1.0), hold_rect, graphics::WHITE).unwrap();
-            graphics::draw(context, &hold_mesh, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
+            Renderer::draw_frame
+            (
+                context, 
+                (Board::ORIGIN_OFFSET.0 + self.board.width as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING, Board::ORIGIN_OFFSET.1 + size * i as f32),
+                (size, size)
+            )?;
 
-
-            for point in self.tetromino_hat[(self.current_tetromino_index + i + 1) % Game::NUM_OF_NEXT_PIECES].points.iter()
-            {
-                //TODO: operator overloading for more clean code?
-                let x_pos = hold_rect.x + Board::CELL_SPACING + point.x as f32 * (Board::CELL_SIZE + Board::CELL_SPACING);  
-                let y_pos = hold_rect.y + Board::CELL_SPACING + point.y as f32 * (Board::CELL_SIZE + Board::CELL_SPACING);
-                
-                let rect = graphics::Rect{ x: x_pos, y: y_pos, w: Board::CELL_SIZE, h: Board::CELL_SIZE};
-                let square = graphics::Mesh::new_rectangle(context, DrawMode::fill(), rect, graphics::WHITE).unwrap();
-                graphics::draw(context, &square, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
-            }
+            Renderer::draw_tetromino(
+                context, 
+                &self.tetromino_hat[(self.current_tetromino_index + i + 1) % Game::NUM_OF_TETROMINOS].points,
+                (Board::ORIGIN_OFFSET.0 + self.board.width as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING, Board::ORIGIN_OFFSET.1 + size * i as f32),
+                (0.0, 0.0),
+                Board::CELL_SIZE,
+                Board::CELL_SPACING                  
+            )?;
         }
 
         //Draw cells
@@ -234,17 +225,15 @@ impl EventHandler for Game
             }
         }
         //Draw active piece
-        for point in self.active_piece.points.iter()
-        {
-            //TODO: operator overloading for more clean code?
-            let center = &self.active_piece.position;
-            let x_pos = Board::ORIGIN_OFFSET.0 + Board::CELL_SPACING + ((point.x + center.x) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
-            let y_pos = Board::ORIGIN_OFFSET.1 + Board::CELL_SPACING + ((point.y + center.y) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));
-            
-            let rect = graphics::Rect{ x: x_pos, y: y_pos, w: Board::CELL_SIZE, h: Board::CELL_SIZE};
-            let square = graphics::Mesh::new_rectangle(context, DrawMode::fill(), rect, graphics::WHITE).unwrap();
-            graphics::draw(context, &square, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
-        }
+        Renderer::draw_tetromino
+        (
+            context,
+            &self.active_piece.points,
+            Board::ORIGIN_OFFSET,
+            (self.active_piece.position.x as f32, self.active_piece.position.y as f32),
+            Board::CELL_SIZE,
+            Board::CELL_SPACING
+        )?;
         //TODO: draw ghost piece
 
         graphics::present(context)
