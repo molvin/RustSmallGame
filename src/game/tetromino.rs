@@ -15,8 +15,8 @@ impl Piece
         Piece
         {
             position: Point::zero(),
-            points: [Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 2, y: 1}, Point{x: 3, y: 1}],
-            rotation_center: (2.0, 1.0)
+            points: [Point{x: 0, y: 0}, Point{x: 1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}],
+            rotation_center: (2.0, 0.0)
         }
     }
     pub fn j() -> Piece
@@ -42,8 +42,8 @@ impl Piece
         Piece
         {
             position: Point::zero(),
-            points: [Point{x: 1, y: 0}, Point{x: 1, y: 1}, Point{x: 2, y: 1}, Point{x: 2, y: 0}],
-            rotation_center: (1.5, 0.5)
+            points: [Point{x: 0, y: 0}, Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 1, y: 0}],
+            rotation_center: (0.5, 0.5)
         }
     }
     pub fn s() -> Piece
@@ -90,8 +90,9 @@ impl Piece
     }
     pub fn rotate(&mut self)
     {
+        /*
         let angle : f32 = std::f32::consts::PI * 0.5;
-        let c = angle.cos();    // 0
+        let c = angle.cos();    // 0 should be const
         let s = angle.sin();    // 1
         for i in 0..4
         {
@@ -102,5 +103,16 @@ impl Piece
             self.points[i] = Point{x: rotated_x, y: rotated_y};
             println!("index: {}, before: {}, {}, after: {}, {}, rotation center: {}, {}", i, px + cx, py + cy, rotated_x, rotated_y, cx, cy);
         }
+        */
+
+        for i in 0..4
+        {
+            self.points[i] = Point
+            {
+                x: (self.rotation_center.0 - (self.points[i].y as f32 - self.rotation_center.1)).round() as i32,
+                y: ((self.points[i].x as f32 - self.rotation_center.0) + self.rotation_center.1).round() as i32
+            };
+        }
+
     }
 }

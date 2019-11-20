@@ -1,25 +1,9 @@
-use ggez::{Context, GameResult};
+use ggez::{Context, GameResult, input, timer};
 use ggez::graphics::{self, DrawMode};
 use ggez::event::{EventHandler, KeyCode};
-use ggez::{input, timer};
 use rand::{seq::SliceRandom, thread_rng};
 pub mod tetromino;
 use tetromino::Piece;
-
-///TODO
-/// Make all pieces
-/// Random hat pieces
-/// Space to drop
-/// Down to reduce time between ticks
-/// Colors for pieces
-/// Colors for cells
-/// Rotation
-/// Kicking
-/// Clearing
-/// Score
-/// Holding 
-/// Show next pieces
-
 
 enum Cell
 {
@@ -35,13 +19,13 @@ struct Board
 impl Board
 {
     const CELL_SPACING: f32 = 3.0;
-    const ORIGIN_OFFSET: f32 = 10.0;
+    const ORIGIN_OFFSET: (f32, f32) = (150.0, 15.0);
     const CELL_SIZE: f32 = 20.0;
 
     fn new(width: u32, height: u32) -> Board
     {
         let mut v = Vec::new();
-        for i in 0..width*height
+        for _i in 0..width*height
         {         
             //v.push(if i < width * (height - 1) { Cell::Empty } else { Cell::Occupied });
             v.push(Cell::Empty);
@@ -75,8 +59,6 @@ impl Board
 
 }
 
-
-
 pub struct Game
 {
     board: Board,
@@ -91,10 +73,11 @@ impl Game
     const INPUT_DELAY: f32 = 0.3;
     const TICK_DELAY: f32 = 0.2;
     const NUM_OF_TETROMINOS: usize = 7;
+    const NUM_OF_NEXT_PIECES: usize = 4;
 
-    pub fn new(context: &mut Context) -> Game
+    pub fn new(_context: &mut Context) -> Game
     {
-        let hat: [Piece; Game::NUM_OF_TETROMINOS] = 
+        let mut hat: [Piece; Game::NUM_OF_TETROMINOS] = 
         [
             Piece::i(),
             Piece::j(),
@@ -104,7 +87,8 @@ impl Game
             Piece::t(),
             Piece::z()
         ];
-        let mut game = Game 
+        hat.shuffle(&mut thread_rng());
+        Game 
         { 
             board: Board::new(10, 20), 
             active_piece: hat[0].clone(), 
@@ -112,10 +96,7 @@ impl Game
             tick_timer: 0.0,
             tetromino_hat: hat,
             current_tetromino_index: 0
-        };
-        let mut rng = thread_rng();
-        game.tetromino_hat.shuffle(&mut rng);
-        game
+        }
     }   
 }
 impl EventHandler for Game
@@ -130,8 +111,7 @@ impl EventHandler for Game
         //Tick
         if self.tick_timer > Game::TICK_DELAY
         {
-            self.tick_timer -= Game::TICK_DELAY;
-            
+            self.tick_timer -= Game::TICK_DELAY;          
             self.active_piece.position.y += 1;
         }
         if self.board.check_collision(&self.active_piece)
@@ -145,12 +125,9 @@ impl EventHandler for Game
 
             //New piece
             self.current_tetromino_index = (self.current_tetromino_index + 1) % Game::NUM_OF_TETROMINOS;
-            println!("New index: {}", self.current_tetromino_index);
             if self.current_tetromino_index == 0
             {
-                let mut rng = thread_rng();
-                self.tetromino_hat.shuffle(&mut rng);
-                println!("Shuffling");
+                self.tetromino_hat.shuffle(&mut thread_rng());
             }
             self.active_piece = self.tetromino_hat[self.current_tetromino_index].clone();
 
@@ -186,16 +163,54 @@ impl EventHandler for Game
     {
         graphics::clear(context, graphics::BLACK);
 
-        //Draw board      
+        //Draw board, TODO: put mesh in board, no point remaking all the time      
         let board_rect = graphics::Rect
         {
-            x: Board::ORIGIN_OFFSET, 
-            y: Board::ORIGIN_OFFSET, 
+            x: Board::ORIGIN_OFFSET.0, 
+            y: Board::ORIGIN_OFFSET.1, 
             w: self.board.width as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING,
             h: self.board.height as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING
         };
         let board_mesh = graphics::Mesh::new_rectangle(context, DrawMode::stroke(1.0), board_rect, graphics::WHITE).unwrap();
         graphics::draw(context, &board_mesh, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
+        
+        //Draw hold piece        
+        let size = 4.0 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING;
+        let hold_rect = graphics::Rect
+        {
+            x: board_rect.x - size,
+            y: Board::ORIGIN_OFFSET.1,
+            w: size,
+            h: size
+        };
+        let hold_mesh = graphics::Mesh::new_rectangle(context, DrawMode::stroke(1.0), hold_rect, graphics::WHITE).unwrap();
+        graphics::draw(context, &hold_mesh, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
+        
+        //Draw next pieces
+        for i in 0..Game::NUM_OF_NEXT_PIECES
+        {
+            let hold_rect = graphics::Rect
+            {
+                x: board_rect.x + board_rect.w,
+                y: Board::ORIGIN_OFFSET.1 + size * i as f32,
+                w: size,
+                h: size
+            };
+            let hold_mesh = graphics::Mesh::new_rectangle(context, DrawMode::stroke(1.0), hold_rect, graphics::WHITE).unwrap();
+            graphics::draw(context, &hold_mesh, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
+
+
+            for point in self.tetromino_hat[(self.current_tetromino_index + i + 1) % Game::NUM_OF_NEXT_PIECES].points.iter()
+            {
+                //TODO: operator overloading for more clean code?
+                let x_pos = hold_rect.x + Board::CELL_SPACING + point.x as f32 * (Board::CELL_SIZE + Board::CELL_SPACING);  
+                let y_pos = hold_rect.y + Board::CELL_SPACING + point.y as f32 * (Board::CELL_SIZE + Board::CELL_SPACING);
+                
+                let rect = graphics::Rect{ x: x_pos, y: y_pos, w: Board::CELL_SIZE, h: Board::CELL_SIZE};
+                let square = graphics::Mesh::new_rectangle(context, DrawMode::fill(), rect, graphics::WHITE).unwrap();
+                graphics::draw(context, &square, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
+            }
+        }
 
         //Draw cells
         for y in 0..self.board.height
@@ -206,9 +221,9 @@ impl EventHandler for Game
                 {
                     Cell::Occupied => 
                     {
-                        //TODO: operator overloading for more clean code?
-                        let x_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + (x as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
-                        let y_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + (y as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
+                        //TODO: operator overloading for more clean code?   caching rect or mesh?
+                        let x_pos = Board::ORIGIN_OFFSET.0 + Board::CELL_SPACING + (x as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
+                        let y_pos = Board::ORIGIN_OFFSET.1 + Board::CELL_SPACING + (y as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
         
                         let rect = graphics::Rect{ x: x_pos, y: y_pos, w: Board::CELL_SIZE, h: Board::CELL_SIZE};
                         let square = graphics::Mesh::new_rectangle(context, DrawMode::fill(), rect, graphics::WHITE).unwrap();
@@ -223,8 +238,8 @@ impl EventHandler for Game
         {
             //TODO: operator overloading for more clean code?
             let center = &self.active_piece.position;
-            let x_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + ((point.x + center.x) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
-            let y_pos = Board::ORIGIN_OFFSET + Board::CELL_SPACING + ((point.y + center.y) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));
+            let x_pos = Board::ORIGIN_OFFSET.0 + Board::CELL_SPACING + ((point.x + center.x) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
+            let y_pos = Board::ORIGIN_OFFSET.1 + Board::CELL_SPACING + ((point.y + center.y) as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));
             
             let rect = graphics::Rect{ x: x_pos, y: y_pos, w: Board::CELL_SIZE, h: Board::CELL_SIZE};
             let square = graphics::Mesh::new_rectangle(context, DrawMode::fill(), rect, graphics::WHITE).unwrap();

@@ -4,6 +4,16 @@ use ggez::event;
 mod game;
 mod utility;
 
+///TODO
+/// Space to drop
+/// Down to reduce time between ticks
+/// Colors for pieces
+/// Colors for cells
+/// Kicking
+/// Clearing
+/// Score
+/// Holding 
+/// Show next pieces
 
 fn main() {
     
