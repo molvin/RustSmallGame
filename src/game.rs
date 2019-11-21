@@ -1,7 +1,8 @@
 use ggez::{Context, GameResult, input, timer};
 use ggez::graphics::{self, DrawMode};
 use ggez::event::{EventHandler, KeyCode};
-use rand::{seq::SliceRandom, thread_rng};
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 use tetromino::Tetromino;
 use renderer::Renderer;
 
@@ -59,7 +60,6 @@ impl Board
         }
         false
     }
-
 }
 
 pub struct Game
