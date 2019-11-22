@@ -1,5 +1,5 @@
 use ggez::{Context, GameResult, input, timer};
-use ggez::graphics::{self, DrawMode};
+use ggez::graphics::{self, DrawMode, Color };
 use ggez::event::{EventHandler, KeyCode};
 use rand::thread_rng;
 use rand::seq::SliceRandom;
@@ -12,7 +12,7 @@ pub mod renderer;
 enum Cell
 {
     Empty,
-    Occupied
+    Occupied(Color)
 }
 struct Board
 {
@@ -54,7 +54,7 @@ impl Board
             }
             match self.cells[index as usize]
             {
-                Cell::Occupied => { return true; }
+                Cell::Occupied(color) => { return true; }
                 _=> continue
             }
         }
@@ -123,8 +123,9 @@ impl EventHandler for Game
             for point in self.active_piece.points.iter()
             {
                 let index = (point.x + self.active_piece.position.x + ((point.y + self.active_piece.position.y) * self.board.width as i32)) as usize;
-                self.board.cells[index] = Cell::Occupied;
+                self.board.cells[index] = Cell::Occupied(self.active_piece.color);
             }
+            //TODO: check clear
 
             //New piece
             self.current_tetromino_index = (self.current_tetromino_index + 1) % Game::NUM_OF_TETROMINOS;
@@ -137,8 +138,8 @@ impl EventHandler for Game
             return Ok(())
         }    
         
-        let previous_position = self.active_piece.position.clone();
         //Input, TODO: allow multiple inputs ? also get key down, input system
+        let previous_position = self.active_piece.position.clone();
         if input::keyboard::is_key_pressed(context, KeyCode::D) && self.input_timer > Game::INPUT_DELAY
         {
             self.active_piece.position.x += 1;
@@ -199,7 +200,8 @@ impl EventHandler for Game
                 (Board::ORIGIN_OFFSET.0 + self.board.width as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING, Board::ORIGIN_OFFSET.1 + size * i as f32),
                 (0.0, 0.0),
                 Board::CELL_SIZE,
-                Board::CELL_SPACING                  
+                Board::CELL_SPACING,
+                self.tetromino_hat[(self.current_tetromino_index + i + 1) % Game::NUM_OF_TETROMINOS].color                 
             )?;
         }
 
@@ -210,14 +212,14 @@ impl EventHandler for Game
             {
                 match self.board.cells[(x + y * self.board.width) as usize]
                 {
-                    Cell::Occupied => 
+                    Cell::Occupied(color) => 
                     {
                         //TODO: operator overloading for more clean code?   caching rect or mesh?
                         let x_pos = Board::ORIGIN_OFFSET.0 + Board::CELL_SPACING + (x as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
                         let y_pos = Board::ORIGIN_OFFSET.1 + Board::CELL_SPACING + (y as f32 * (Board::CELL_SIZE + Board::CELL_SPACING));  
         
                         let rect = graphics::Rect{ x: x_pos, y: y_pos, w: Board::CELL_SIZE, h: Board::CELL_SIZE};
-                        let square = graphics::Mesh::new_rectangle(context, DrawMode::fill(), rect, graphics::WHITE).unwrap();
+                        let square = graphics::Mesh::new_rectangle(context, DrawMode::fill(), rect, color).unwrap();
                         graphics::draw(context, &square, (ggez::nalgebra::Point2::new(0.0, 0.0),))?;
                     }
                     _ => continue
@@ -232,7 +234,8 @@ impl EventHandler for Game
             Board::ORIGIN_OFFSET,
             (self.active_piece.position.x as f32, self.active_piece.position.y as f32),
             Board::CELL_SIZE,
-            Board::CELL_SPACING
+            Board::CELL_SPACING,
+            self.active_piece.color
         )?;
         //TODO: draw ghost piece
 

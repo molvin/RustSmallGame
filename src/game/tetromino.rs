@@ -1,12 +1,15 @@
 use crate::utility::{ Point };
 use std::cmp;
+use ggez::graphics::Color;
 
 #[derive(Debug, Clone)]
 pub struct Tetromino
 {
     pub position: Point,
     pub points: [Point; 4],
-    rotation_center: (f32, f32)
+    rotation_center: (f32, f32),
+    pub color: Color
+    
 }
 impl Tetromino
 {
@@ -16,7 +19,8 @@ impl Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 0}, Point{x: 1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}],
-            rotation_center: (2.0, 0.0)
+            rotation_center: (2.0, 0.0),
+            color: Color::new(0.27, 0.96, 0.95, 1.0)
         }
     }
     pub fn j() -> Tetromino
@@ -25,7 +29,8 @@ impl Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 0}, Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 2, y: 1}],
-            rotation_center: (1.0, 1.0)
+            rotation_center: (1.0, 1.0),
+            color: Color::new(0.18, 0.0, 0.84, 1.0)
         }
     }
     pub fn l() -> Tetromino
@@ -34,7 +39,8 @@ impl Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 2, y: 1}, Point{x: 2, y: 0}],
-            rotation_center: (1.0, 1.0)
+            rotation_center: (1.0, 1.0),
+            color: Color::new(0.91, 0.65, 0.05, 1.0)
         }
     }
     pub fn o() -> Tetromino
@@ -43,7 +49,8 @@ impl Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 0}, Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 1, y: 0}],
-            rotation_center: (0.5, 0.5)
+            rotation_center: (0.5, 0.5),
+            color: Color::new(0.92, 0.96, 0.06, 1.0)
         }
     }
     pub fn s() -> Tetromino
@@ -52,7 +59,8 @@ impl Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 1, y: 0}, Point{x: 2, y: 0}],
-            rotation_center: (1.0, 1.0)
+            rotation_center: (1.0, 1.0),
+            color: Color::new(0.18, 0.96, 0.0, 1.0)
         }
     }
     pub fn t() -> Tetromino
@@ -61,7 +69,8 @@ impl Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 1}, Point{x: 1, y: 1}, Point{x: 2, y: 1}, Point{x: 1, y: 0}],
-            rotation_center: (1.0, 1.0)
+            rotation_center: (1.0, 1.0),
+            color: Color::new(0.63, 0.0, 0.94, 1.0)
         }
     }
     pub fn z() -> Tetromino
@@ -70,7 +79,8 @@ impl Tetromino
         {
             position: Point::zero(),
             points: [Point{x: 0, y: 0}, Point{x: 1, y: 0}, Point{x: 1, y: 1}, Point{x: 2, y: 1}],
-            rotation_center: (1.0, 1.0)
+            rotation_center: (1.0, 1.0),
+            color: Color::new(0.96, 0.05, 0.07, 1.0)
         }
     }
     pub fn generate_bounds(&self) -> (Point, Point)
