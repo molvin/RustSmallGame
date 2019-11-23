@@ -9,6 +9,7 @@ use renderer::Renderer;
 pub mod tetromino;
 pub mod renderer;
 
+#[derive(Debug, Clone)]
 enum Cell
 {
     Empty,
@@ -54,11 +55,82 @@ impl Board
             }
             match self.cells[index as usize]
             {
-                Cell::Occupied(color) => { return true; }
+                Cell::Occupied(_color) => { return true; }
                 _=> continue
             }
         }
         false
+    }
+    fn clear_lines(&mut self)
+    {
+        loop
+        {       
+            //Check lines
+            let mut lines_to_clear : Vec<usize> = Vec::new();
+            for y in (0..self.height).rev()
+            {
+                let mut full_line = true;
+                for x in 0..self.width 
+                {
+                    match self.cells[(x + y * self.width) as usize]
+                    {   
+                        Cell::Empty => { full_line = false; break; }                    
+                        Cell::Occupied(_color) => { continue; }
+                    }
+                }
+                if full_line
+                {
+                    lines_to_clear.push(y as usize);
+                }
+            }
+            //Clear lines
+            for y in lines_to_clear.iter()
+            {
+                for x in 0..self.width as usize
+                {
+                    self.cells[(x + y * self.width as usize)] = Cell::Empty;
+                }
+            }
+
+            if lines_to_clear.len() == 0
+            {
+                return;
+            }
+
+            //Cascade, doing it the naive way, can be optimized
+            for y in (0..self.height as usize).rev()
+            {
+                for x in 0..self.width as usize
+                {
+                    match self.cells[(x + y * self.width as usize) as usize]
+                    {   
+                        Cell::Occupied(color) => 
+                        {
+                            let mut i = 1;
+                            loop
+                            {
+                                if y + i >= self.height as usize
+                                {
+                                    break;
+                                }
+
+                                match self.cells[( x + (y + i) * self.width as usize)]
+                                {
+                                    Cell::Empty => 
+                                    {                   
+                                        self.cells[( x + (y + i ) * self.width as usize)] = self.cells[( x + (y + i - 1) * self.width as usize)].clone();
+                                        self.cells[( x + (y + i - 1) * self.width as usize)] = Cell::Empty;
+                                        i += 1;
+                                    }
+                                    _=> { break; }
+                                }
+                            }
+                        }
+                        Cell::Empty => { continue; }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -106,6 +178,7 @@ impl EventHandler for Game
 {
     fn update(&mut self, context: &mut Context) -> GameResult<()>
     {
+        self.board.clear_lines();
         let delta_time = timer::delta(context).as_secs_f32();
         self.input_timer += delta_time;
         self.tick_timer += delta_time;
@@ -126,6 +199,7 @@ impl EventHandler for Game
                 self.board.cells[index] = Cell::Occupied(self.active_piece.color);
             }
             //TODO: check clear
+
 
             //New piece
             self.current_tetromino_index = (self.current_tetromino_index + 1) % Game::NUM_OF_TETROMINOS;

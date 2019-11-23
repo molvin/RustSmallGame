@@ -7,12 +7,13 @@ mod utility;
 ///TODO
 /// Space to drop
 /// Down to reduce time between ticks
-/// Colors for pieces
-/// Colors for cells
 /// Kicking
 /// Clearing
 /// Score
 /// Holding 
+/// 
+/// BUGS
+/// next pieces sometimes wrong
 
 fn main() {
     
@@ -21,7 +22,8 @@ fn main() {
     let (mut context, mut event_loop) = ContextBuilder::new("game", "molvin")
     .window_setup(window_setup)
     .window_mode(window_mode)
-    .build().expect("failed to create ggez context");
+    .build()
+    .expect("failed to create ggez context");
     
     let mut game = game::Game::new(&mut context);
     
