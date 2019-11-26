@@ -1,13 +1,17 @@
-use ggez::{Context, GameResult, input, timer};
+use ggez::{Context, GameResult, timer};
 use ggez::graphics::{self, DrawMode, Color };
 use ggez::event::{EventHandler, KeyCode};
 use rand::thread_rng;
 use rand::seq::SliceRandom;
 use tetromino::Tetromino;
 use renderer::Renderer;
+use input::Input;
+use crate::utility::Point;
 
 pub mod tetromino;
 pub mod renderer;
+pub mod input;
+
 
 #[derive(Debug, Clone)]
 enum Cell
@@ -104,7 +108,7 @@ impl Board
                 {
                     match self.cells[(x + y * self.width as usize) as usize]
                     {   
-                        Cell::Occupied(color) => 
+                        Cell::Occupied(_color) => 
                         {
                             let mut i = 1;
                             loop
@@ -142,11 +146,12 @@ pub struct Game
     tick_timer: f32,
     tetromino_hat: [Tetromino; Game::NUM_OF_TETROMINOS],
     current_tetromino_index: usize,
+    input: Input,
 }
 impl Game
 {
     const INPUT_DELAY: f32 = 0.3;
-    const TICK_DELAY: f32 = 0.2;
+    const TICK_DELAY: f32 = 0.5;
     const NUM_OF_TETROMINOS: usize = 7;
     const NUM_OF_NEXT_PIECES: usize = 4;
 
@@ -170,15 +175,34 @@ impl Game
             input_timer: 0.0, 
             tick_timer: 0.0,
             tetromino_hat: hat,
-            current_tetromino_index: 0
+            current_tetromino_index: 0,
+            input: Input::new()
         }
     }   
+
+    fn apply_piece_to_board(&mut self)
+    {        
+        for point in self.active_piece.points.iter()
+        {
+            let index = (point.x + self.active_piece.position.x + ((point.y + self.active_piece.position.y) * self.board.width as i32)) as usize;
+            self.board.cells[index] = Cell::Occupied(self.active_piece.color);
+        }
+        self.board.clear_lines();
+
+        //New piece
+        self.current_tetromino_index = (self.current_tetromino_index + 1) % Game::NUM_OF_TETROMINOS;
+        if self.current_tetromino_index == 0
+        {
+            self.tetromino_hat.shuffle(&mut thread_rng());
+        }
+        self.active_piece = self.tetromino_hat[self.current_tetromino_index].clone();           
+    }
 }
 impl EventHandler for Game
 {
     fn update(&mut self, context: &mut Context) -> GameResult<()>
     {
-        self.board.clear_lines();
+        self.input.update(context);
         let delta_time = timer::delta(context).as_secs_f32();
         self.input_timer += delta_time;
         self.tick_timer += delta_time;
@@ -189,50 +213,42 @@ impl EventHandler for Game
         {
             self.tick_timer -= Game::TICK_DELAY;          
             self.active_piece.position.y += 1;
+            if self.board.check_collision(&self.active_piece)
+            {
+                self.active_piece.position = previous_position;
+                self.apply_piece_to_board();
+            }
         }
-        if self.board.check_collision(&self.active_piece)
-        {
-            self.active_piece.position = previous_position;
-            for point in self.active_piece.points.iter()
-            {
-                let index = (point.x + self.active_piece.position.x + ((point.y + self.active_piece.position.y) * self.board.width as i32)) as usize;
-                self.board.cells[index] = Cell::Occupied(self.active_piece.color);
-            }
-            //TODO: check clear
-
-
-            //New piece
-            self.current_tetromino_index = (self.current_tetromino_index + 1) % Game::NUM_OF_TETROMINOS;
-            if self.current_tetromino_index == 0
-            {
-                self.tetromino_hat.shuffle(&mut thread_rng());
-            }
-            self.active_piece = self.tetromino_hat[self.current_tetromino_index].clone();
-
-            return Ok(())
-        }    
         
         //Input, TODO: allow multiple inputs ? also get key down, input system
         let previous_position = self.active_piece.position.clone();
-        if input::keyboard::is_key_pressed(context, KeyCode::D) && self.input_timer > Game::INPUT_DELAY
+        let input_direction = self.input.get_axis(KeyCode::A, KeyCode::D);
+        if  input_direction != 0 && self.input_timer > Game::INPUT_DELAY
         {
-            self.active_piece.position.x += 1;
+            self.active_piece.position.x += input_direction;
             self.input_timer = 0.0;
         }
-        if input::keyboard::is_key_pressed(context, KeyCode::A) && self.input_timer > Game::INPUT_DELAY
-        {
-            self.active_piece.position.x -= 1;
-            self.input_timer = 0.0;
-        }
-        if input::keyboard::is_key_pressed(context, KeyCode::W) && self.input_timer > Game::INPUT_DELAY
+        if self.input.get_key(KeyCode::W) && self.input_timer > Game::INPUT_DELAY
         {
             self.active_piece.rotate();
             self.input_timer = 0.0;
         }
-        //Collision
+        //Collision side
         if self.board.check_collision(&self.active_piece)
         {
             self.active_piece.position = previous_position;
+        }  
+        
+        if self.input.get_key_down(KeyCode::Space)
+        {
+            let mut previous_position = self.active_piece.position;
+            while !self.board.check_collision(&self.active_piece)
+            {
+                previous_position = self.active_piece.position;
+                self.active_piece.position.y += 1;
+            }
+            self.active_piece.position = previous_position;
+            self.apply_piece_to_board();
         }
 
         Ok(())

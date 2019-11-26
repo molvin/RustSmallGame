@@ -100,21 +100,6 @@ impl Tetromino
     }
     pub fn rotate(&mut self)
     {
-        /*
-        let angle : f32 = std::f32::consts::PI * 0.5;
-        let c = angle.cos();    // 0 should be const
-        let s = angle.sin();    // 1
-        for i in 0..4
-        {
-            let (cx, cy) = self.rotation_center;
-            let (px, py) = (self.points[i].x as f32 - cx, self.points[i].y as f32 - cy);
-            let rotated_x = ((px * c - py * s) + cx).round() as i32;
-            let rotated_y = ((px * s + py * c) + cy).round() as i32;
-            self.points[i] = Point{x: rotated_x, y: rotated_y};
-            println!("index: {}, before: {}, {}, after: {}, {}, rotation center: {}, {}", i, px + cx, py + cy, rotated_x, rotated_y, cx, cy);
-        }
-        */
-
         for i in 0..4
         {
             self.points[i] = Point
