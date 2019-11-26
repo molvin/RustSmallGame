@@ -179,7 +179,17 @@ impl Game
             input: Input::new()
         }
     }   
-
+    fn get_drop_position(&self, tetromino: Tetromino) -> Point
+    {
+        let mut temp = tetromino.clone();
+        let mut previous_position = temp.position;
+        while !self.board.check_collision(&temp)
+        {
+            previous_position = temp.position;
+            temp.position.y += 1;
+        }
+        previous_position
+    }
     fn apply_piece_to_board(&mut self)
     {        
         for point in self.active_piece.points.iter()
@@ -328,6 +338,9 @@ impl EventHandler for Game
             self.active_piece.color
         )?;
         //TODO: draw ghost piece
+        let ghost_piece: Tetromino = self.active_piece.clone();
+
+
 
         graphics::present(context)
     }
