@@ -179,7 +179,7 @@ impl Game
             input: Input::new()
         }
     }   
-    fn get_drop_position(&self, tetromino: Tetromino) -> Point
+    fn get_drop_position(&self, tetromino: &Tetromino) -> Point
     {
         let mut temp = tetromino.clone();
         let mut previous_position = temp.position;
@@ -251,13 +251,7 @@ impl EventHandler for Game
         
         if self.input.get_key_down(KeyCode::Space)
         {
-            let mut previous_position = self.active_piece.position;
-            while !self.board.check_collision(&self.active_piece)
-            {
-                previous_position = self.active_piece.position;
-                self.active_piece.position.y += 1;
-            }
-            self.active_piece.position = previous_position;
+            self.active_piece.position = self.get_drop_position(&self.active_piece);
             self.apply_piece_to_board();
         }
 
@@ -338,10 +332,19 @@ impl EventHandler for Game
             self.active_piece.color
         )?;
         //TODO: draw ghost piece
-        let ghost_piece: Tetromino = self.active_piece.clone();
-
-
-
+        let mut ghost_piece: Tetromino = self.active_piece.clone();
+        ghost_piece.position = self.get_drop_position(&ghost_piece);
+        ghost_piece.color.a = 0.2;
+        Renderer::draw_tetromino(
+            context, 
+            &ghost_piece.points,
+            Board::ORIGIN_OFFSET,
+            (ghost_piece.position.x as f32, ghost_piece.position.y as f32),
+            Board::CELL_SIZE,
+            Board::CELL_SPACING,
+            ghost_piece.color                 
+        )?;
+        
         graphics::present(context)
     }
 }
