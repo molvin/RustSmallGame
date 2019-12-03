@@ -5,12 +5,11 @@ mod game;
 mod utility;
 
 ///TODO
-/// Space to drop
 /// Down to reduce time between ticks
 /// Kicking
-/// Clearing
 /// Score
 /// Holding 
+/// Redo clearing, use sticky instead of cascade
 /// 
 /// BUGS
 /// next pieces sometimes wrong

@@ -145,13 +145,15 @@ pub struct Game
     input_timer: f32,
     tick_timer: f32,
     tetromino_hat: [Tetromino; Game::NUM_OF_TETROMINOS],
+    next_hat: [Tetromino; Game::NUM_OF_TETROMINOS],
     current_tetromino_index: usize,
     input: Input,
 }
 impl Game
 {
-    const INPUT_DELAY: f32 = 0.3;
+    const INPUT_DELAY: f32 = 0.1;
     const TICK_DELAY: f32 = 0.5;
+    const TICK_DELAY_FAST: f32 = 0.2;
     const NUM_OF_TETROMINOS: usize = 7;
     const NUM_OF_NEXT_PIECES: usize = 4;
 
@@ -168,6 +170,8 @@ impl Game
             Tetromino::z()
         ];
         hat.shuffle(&mut thread_rng());
+        let mut temp_hat = hat.clone();
+        temp_hat.shuffle(&mut thread_rng());
         Game 
         { 
             board: Board::new(10, 20), 
@@ -175,6 +179,7 @@ impl Game
             input_timer: 0.0, 
             tick_timer: 0.0,
             tetromino_hat: hat,
+            next_hat: temp_hat,
             current_tetromino_index: 0,
             input: Input::new()
         }
@@ -203,7 +208,8 @@ impl Game
         self.current_tetromino_index = (self.current_tetromino_index + 1) % Game::NUM_OF_TETROMINOS;
         if self.current_tetromino_index == 0
         {
-            self.tetromino_hat.shuffle(&mut thread_rng());
+            self.tetromino_hat = self.next_hat.clone();
+            self.next_hat.shuffle(&mut thread_rng());
         }
         self.active_piece = self.tetromino_hat[self.current_tetromino_index].clone();           
     }
@@ -218,10 +224,12 @@ impl EventHandler for Game
         self.tick_timer += delta_time;
 
         let previous_position = self.active_piece.position.clone();
+
+        let delay = if self.input.get_key(KeyCode::S) { Game::TICK_DELAY_FAST } else { Game::TICK_DELAY };
         //Tick
-        if self.tick_timer > Game::TICK_DELAY
+        if self.tick_timer > delay
         {
-            self.tick_timer -= Game::TICK_DELAY;          
+            self.tick_timer = 0.0;    
             self.active_piece.position.y += 1;
             if self.board.check_collision(&self.active_piece)
             {
@@ -238,7 +246,7 @@ impl EventHandler for Game
             self.active_piece.position.x += input_direction;
             self.input_timer = 0.0;
         }
-        if self.input.get_key(KeyCode::W) && self.input_timer > Game::INPUT_DELAY
+        if self.input.get_key_down(KeyCode::W)
         {
             self.active_piece.rotate();
             self.input_timer = 0.0;
@@ -288,14 +296,26 @@ impl EventHandler for Game
                 (size, size)
             )?;
 
+            let index = self.current_tetromino_index + i + 1;
+            
+            let next_tetromino = 
+                if index >= Game::NUM_OF_TETROMINOS
+                {
+                    &self.next_hat[(self.current_tetromino_index + i + 1) - Game::NUM_OF_TETROMINOS]
+                }
+                else
+                {
+                    &self.tetromino_hat[(self.current_tetromino_index + i + 1)]
+                };
+
             Renderer::draw_tetromino(
                 context, 
-                &self.tetromino_hat[(self.current_tetromino_index + i + 1) % Game::NUM_OF_TETROMINOS].points,
+                &next_tetromino.points,
                 (Board::ORIGIN_OFFSET.0 + self.board.width as f32 * (Board::CELL_SIZE + Board::CELL_SPACING) + Board::CELL_SPACING, Board::ORIGIN_OFFSET.1 + size * i as f32),
                 (0.0, 0.0),
                 Board::CELL_SIZE,
                 Board::CELL_SPACING,
-                self.tetromino_hat[(self.current_tetromino_index + i + 1) % Game::NUM_OF_TETROMINOS].color                 
+                next_tetromino.color                 
             )?;
         }
 
@@ -331,7 +351,7 @@ impl EventHandler for Game
             Board::CELL_SPACING,
             self.active_piece.color
         )?;
-        //TODO: draw ghost piece
+        //Draw ghost piece
         let mut ghost_piece: Tetromino = self.active_piece.clone();
         ghost_piece.position = self.get_drop_position(&ghost_piece);
         ghost_piece.color.a = 0.2;
