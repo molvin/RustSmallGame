@@ -1,6 +1,7 @@
 use crate::utility::{ Point };
 use std::cmp;
 use ggez::graphics::Color;
+use crate::game::Board;
 
 #[derive(Debug, Clone)]
 pub struct Tetromino
@@ -98,16 +99,33 @@ impl Tetromino
 
         (top_left + self.position, bot_right + self.position)
     }
-    pub fn rotate(&mut self)
+    pub fn rotate(&mut self, board: &Board)
     {
-        for i in 0..4
-        {
-            self.points[i] = Point
-            {
-                x: (self.rotation_center.0 - (self.points[i].y as f32 - self.rotation_center.1)).round() as i32,
-                y: ((self.points[i].x as f32 - self.rotation_center.0) + self.rotation_center.1).round() as i32
-            };
-        }
+        let safe_points = self.points.clone();
+        let origin = self.position.clone();
+        let mut direction = 1;
 
+        for _i in 0..3
+        {
+            for i in 0..4
+            {
+                self.points[i] = Point
+                {
+                    x: (self.rotation_center.0 - (self.points[i].y as f32 - self.rotation_center.1)).round() as i32,
+                    y: ((self.points[i].x as f32 - self.rotation_center.0) + self.rotation_center.1).round() as i32
+                };
+            }
+            
+            if board.check_collision(&self)
+            {
+                self.points = safe_points;
+                self.position = origin + Point{x: direction, y: 0};
+                direction *= -1;
+                continue;   
+            }
+            return;
+        }
+        self.points = safe_points;
+        self.position = origin;            
     }
 }

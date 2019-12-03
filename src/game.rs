@@ -19,7 +19,7 @@ enum Cell
     Empty,
     Occupied(Color)
 }
-struct Board
+pub struct Board
 {
     width: u32,
     height: u32,
@@ -42,7 +42,7 @@ impl Board
 
         Board{width: width, height: height, cells: v}
     }
-    fn check_collision(&self, piece: &Tetromino) -> bool
+    pub fn check_collision(&self, piece: &Tetromino) -> bool
     {   
         let (tl, br) = piece.generate_bounds();
         if tl.x < 0 || br.x >= (self.width as i32) || br.y >= (self.height as i32)        
@@ -66,74 +66,64 @@ impl Board
         false
     }
     fn clear_lines(&mut self)
+    {    
+        //Check lines
+        let mut lines_to_clear : Vec<usize> = Vec::new();
+        for y in (0..self.height).rev()
+        {
+            let mut full_line = true;
+            for x in 0..self.width 
+            {
+                match self.cells[(x + y * self.width) as usize]
+                {   
+                    Cell::Empty => { full_line = false; break; }                    
+                    Cell::Occupied(_color) => { continue; }
+                }
+            }
+            if full_line
+            {
+                lines_to_clear.push(y as usize);
+            }
+        }
+        //Clear lines
+        for y in lines_to_clear.iter()
+        {
+            for x in 0..self.width as usize
+            {
+                self.cells[(x + y * self.width as usize)] = Cell::Empty;
+            }
+        }
+
+        if lines_to_clear.len() == 0
+        {
+            return;
+        }
+        for line in lines_to_clear.iter().rev()
+        {
+            for y in (0..*line).rev()
+            {
+                println!("moveing line {} down", y);
+                self.move_line_down(y);
+            }
+        }
+        
+    }
+    fn move_line_down(&mut self, y: usize)
     {
-        loop
-        {       
-            //Check lines
-            let mut lines_to_clear : Vec<usize> = Vec::new();
-            for y in (0..self.height).rev()
+        //Check if line bellow is empty
+        for x in 0..self.width as usize
+        {
+            match self.cells[x + (y + 1) * self.width as usize]
             {
-                let mut full_line = true;
-                for x in 0..self.width 
-                {
-                    match self.cells[(x + y * self.width) as usize]
-                    {   
-                        Cell::Empty => { full_line = false; break; }                    
-                        Cell::Occupied(_color) => { continue; }
-                    }
-                }
-                if full_line
-                {
-                    lines_to_clear.push(y as usize);
-                }
+                Cell::Occupied(_color) => { return; }
+                _=> { continue; }
             }
-            //Clear lines
-            for y in lines_to_clear.iter()
-            {
-                for x in 0..self.width as usize
-                {
-                    self.cells[(x + y * self.width as usize)] = Cell::Empty;
-                }
-            }
-
-            if lines_to_clear.len() == 0
-            {
-                return;
-            }
-
-            //Cascade, doing it the naive way, can be optimized
-            for y in (0..self.height as usize).rev()
-            {
-                for x in 0..self.width as usize
-                {
-                    match self.cells[(x + y * self.width as usize) as usize]
-                    {   
-                        Cell::Occupied(_color) => 
-                        {
-                            let mut i = 1;
-                            loop
-                            {
-                                if y + i >= self.height as usize
-                                {
-                                    break;
-                                }
-
-                                match self.cells[( x + (y + i) * self.width as usize)]
-                                {
-                                    Cell::Empty => 
-                                    {                   
-                                        self.cells[( x + (y + i ) * self.width as usize)] = self.cells[( x + (y + i - 1) * self.width as usize)].clone();
-                                        self.cells[( x + (y + i - 1) * self.width as usize)] = Cell::Empty;
-                                        i += 1;
-                                    }
-                                    _=> { break; }
-                                }
-                            }
-                        }
-                        Cell::Empty => { continue; }
-                    }
-                }
-            }
+        }
+        //Move line down
+        for x in 0..self.width as usize
+        {
+            self.cells[x + (y + 1) * self.width as usize] = self.cells[x + y * self.width as usize].clone();
+            self.cells[x + y * self.width as usize] = Cell::Empty;
         }
     }
 }
@@ -238,7 +228,6 @@ impl EventHandler for Game
             }
         }
         
-        //Input, TODO: allow multiple inputs ? also get key down, input system
         let previous_position = self.active_piece.position.clone();
         let input_direction = self.input.get_axis(KeyCode::A, KeyCode::D);
         if  input_direction != 0 && self.input_timer > Game::INPUT_DELAY
@@ -248,7 +237,7 @@ impl EventHandler for Game
         }
         if self.input.get_key_down(KeyCode::W)
         {
-            self.active_piece.rotate();
+            self.active_piece.rotate(&self.board);
             self.input_timer = 0.0;
         }
         //Collision side
